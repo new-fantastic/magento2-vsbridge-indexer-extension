@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Store:etc/config.xsd">
+    <default>
+        <additional_indexer_data>
+            <category_configuration>
+                <enable>0</enable>
+                <room_category_id>81</room_category_id>
+                <collection_category_id>95</collection_category_id>
+            </category_configuration>
+        </additional_indexer_data>
+    </default>
+</config>

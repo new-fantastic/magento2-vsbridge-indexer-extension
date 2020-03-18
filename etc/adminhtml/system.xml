@@ -1,0 +1,47 @@
+<?xml version="1.0"?>
+<config xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+        xsi:noNamespaceSchemaLocation="urn:magento:module:Magento_Config:etc/system_file.xsd">
+    <system>
+        <section id="additional_indexer_data" translate="label" type="text" sortOrder="20" showInDefault="1"
+                 showInWebsite="1"
+                 showInStore="1">
+            <label>Additional Indexer Data</label>
+            <tab>vuestorefront_config</tab>
+            <resource>Divante_VsbridgeIndexerCore::configuration</resource>
+            <group id="category_configuration" translate="label" type="text" sortOrder="10" showInDefault="1"
+                   showInWebsite="1" showInStore="1">
+                <label>Category Configuration</label>
+                <field id="enable" translate="label" type="select" sortOrder="10" showInDefault="1"
+                       showInWebsite="1"
+                       showInStore="1" canRestore="1">
+                    <label>Enable</label>
+                    <source_model>Magento\Config\Model\Config\Source\Yesno</source_model>
+                    <validate>required-entry</validate>
+                    <comment>
+                        <![CDATA[Please select Yes to enable this functionality.]]>
+                    </comment>
+                </field>
+                <field id="room_category_id" translate="label" type="text" sortOrder="20" showInDefault="1"
+                       showInWebsite="1" showInStore="1" canRestore="1">
+                    <label>Room Category Id</label>
+                    <validate>required-entry validate-number validate-not-negative-number
+                        validate-greater-than-zero
+                    </validate>
+                    <comment>
+                        <![CDATA[Please enter the room category id.]]>
+                    </comment>
+                </field>
+                <field id="collection_category_id" translate="label" type="text" sortOrder="30" showInDefault="1"
+                       showInWebsite="1" showInStore="1" canRestore="1">
+                    <label>Colletion Category Id</label>
+                    <validate>required-entry validate-number validate-not-negative-number
+                        validate-greater-than-zero
+                    </validate>
+                    <comment>
+                        <![CDATA[Please enter the collection category id.]]>
+                    </comment>
+                </field>
+            </group>
+        </section>
+    </system>
+</config>
