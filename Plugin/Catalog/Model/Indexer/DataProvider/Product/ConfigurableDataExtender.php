@@ -73,11 +73,11 @@ class ConfigurableDataExtender {
 
         $docs = $this->addHreflangUrls($docs);
 
-        $docs = $this->addDiscountAmount($docs, $storeId);
-
         $docs = $this->categoryNames->prepareAditionalIndexerData($this->loadedConfigurableIds, $docs, $storeId, Configurable::TYPE_CODE);
 
         $docs = $this->cloneConfigurableColors($docs,$storeId);
+        
+        $docs = $this->addDiscountAmount($docs, $storeId);
 
         $docs = $this->extendDataWithCategoryNew($docs,$storeId);
 
@@ -181,6 +181,42 @@ class ConfigurableDataExtender {
                         //     );
                         //     $clones[$cloneId]['product_collection_label'] = $product_collection_option['label'];
                         // }
+
+                        // Set final price from lowest price from child in color
+                        $keys = array(
+                            'final_price_incl_tax',
+                            'final_price',
+                            'price_incl_tax',
+                            'regular_price'
+                        );
+
+                        $values = array(
+                            'final_price_incl_tax' => -1,
+                            'final_price' => -1,
+                            'price_incl_tax' => -1,
+                            'regular_price' => -1
+                        );
+
+                        if (array_key_exists('configurable_children', $clones[$cloneId]) && is_iterable($clones[$cloneId]['configurable_children'])) {
+                            foreach ($clones[$cloneId]['configurable_children'] as $child) {
+                                if ($child['color'] != $color['value_index']) {
+                                    continue;
+                                }
+                                foreach($keys as $key) {
+                                    if (isset($child[$key])) {
+                                        if ($child[$key] > 0 && ($values[$key] == -1 || $child[$key] < $values[$key])) {
+                                            $values[$key] = $child[$key];
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        foreach($values as $key => $value) {
+                            if ($value > 0) {
+                                $clones[$cloneId][$key] = $value;
+                            }
+                        }
 
                         $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clones[$cloneId]['clone_name'])));
 
@@ -478,6 +514,9 @@ class ConfigurableDataExtender {
             if (array_key_exists('configurable_children', $indexDataItem) && is_iterable($indexDataItem['configurable_children'])) {
                 foreach ($indexDataItem['configurable_children'] as $key => $child) {
                     $childDiscountAmount = null;
+                    if (isset($indexDataItem['is_clone']) && $indexDataItem['is_clone'] == 1 && $child['color'] != $indexDataItem['clone_color_id']) {
+                        continue;
+                    }
                     if (isset($child['final_price']) && isset($child['regular_price'])) {
                         $childFinalPrice = $child['final_price'];
                         $childRegularPrice = $child['regular_price'];
