@@ -159,6 +159,7 @@ class ConfigurableDataExtender {
                     $clones[$cloneId]['sku'] = $indexDataItem['sku'];
                 }
 
+                $clones[$cloneId]['size_in_color_options'] = $clones[$cloneId]['size_options'];
                 $clones[$cloneId]['is_clone'] = 2;
 
             } else {
@@ -202,6 +203,15 @@ class ConfigurableDataExtender {
                                 if ($child['color'] != $color['value_index']) {
                                     continue;
                                 }
+                                
+                                // size_in_color_options stuff
+                                if (!isset($clones[$cloneId]['size_in_color_options'] )) {
+                                    $clones[$cloneId]['size_in_color_options'] = [];
+                                }
+                                if (isset($child['size'])) {
+                                    $clones[$cloneId]['size_in_color_options'][] = intval($child['size']);
+                                }
+                                // Price stuff
                                 foreach($keys as $key) {
                                     if (isset($child[$key])) {
                                         if ($child[$key] > 0 && ($values[$key] == -1 || $child[$key] < $values[$key])) {
@@ -210,6 +220,10 @@ class ConfigurableDataExtender {
                                     }
                                 }
                             }
+                        }
+
+                        if (isset($clones[$cloneId]['size_in_color_options'] )) {
+                            $clones[$cloneId]['size_in_color_options'] = array_unique($clones[$cloneId]['size_in_color_options']);
                         }
 
                         foreach($values as $key => $value) {
