@@ -84,12 +84,22 @@ class BundleDataExtender
                 foreach ($bundleOption['product_links'] as $child) {
                     $childSKU = $child['sku'];
                     $childProduct = $productRepository->get($childSKU, false, $storeId);
+                    if (isset($childProduct['size'])) {
+                        if (!isset($indexData[$product_id]['size_in_color_options'])) {
+                            $indexData[$product_id]['size_in_color_options'] = [];
+                        }
+                        $indexData[$product_id]['size_in_color_options'][] = intval($childProduct['size']);
+                    }
                     $childRegularPrize = $childProduct->getPriceInfo()->getPrice('regular_price')->getAmount()->getValue();
                     $optionPrizes[] = intval(round($childRegularPrize));
                 }
                 sort($optionPrizes);
                 $childrenRegularPrize['min'] += $optionPrizes[0];
                 $childrenRegularPrize['max'] += end($optionPrizes);
+            }
+
+            if (isset($indexData[$product_id]['size_in_color_options'])) {
+                $indexData[$product_id]['size_in_color_options'] = array_unique($indexData[$product_id]['size_in_color_options']);
             }
 
             $indexData[$product_id]['bundle_children_price'] = $childrenRegularPrize['min'] . '-' . $childrenRegularPrize['max'];
