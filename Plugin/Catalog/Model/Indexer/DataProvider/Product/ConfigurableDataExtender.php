@@ -71,13 +71,13 @@ class ConfigurableDataExtender {
         /* @var \Divante\VsbridgeIndexerCore\Index\IndexOperations $indexOperations */
         $this->categoryResource = $this->objectManager->create("Divante\VsbridgeIndexerCatalog\Model\ResourceModel\Product\Category");
 
-        $docs = $this->addHreflangUrls($docs);
-
         $docs = $this->addDiscountAmount($docs, $storeId);
 
         $docs = $this->categoryNames->prepareAditionalIndexerData($this->loadedConfigurableIds, $docs, $storeId, Configurable::TYPE_CODE);
 
         $docs = $this->cloneConfigurableColors($docs,$storeId);
+
+        $docs = $this->addHreflangUrls($docs);
 
         // $docs = $this->extendDataWithCategoryNew($docs,$storeId);
 
@@ -529,7 +529,7 @@ class ConfigurableDataExtender {
 
             foreach($stores as $store){
                 try {
-                    $product = $productRepository->get($indexData[$product_id]['sku'], false, $store->getId());
+                    $product = $productRepository->get($indexData[$product_id]['originalParentSku'], false, $store->getId());
 
                     /* @TODO: once approved, move out of this loop */
                     if (!isset($this->storeLocales[$store->getId()])) {
@@ -537,8 +537,19 @@ class ConfigurableDataExtender {
                         $locale = $configReader->getValue('general/locale/code', 'website', $website->getCode());
                         $this->storeLocales[$store->getId()] = $locale;
                     }
-
-                    $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $productRewrites->getUrlPath($product);
+                    $clone_color_option = $this->loadOptionById->execute(
+                        'color',
+                        $indexDataItem['clone_color_id'],
+                        $store->getId()
+                    );
+                    $clone_size_option = $this->loadOptionById->execute(
+                        'size',
+                        $indexDataItem['clone_size_id'],
+                        $store->getId()
+                    );
+                    $clone_name = $product['name'].', '.$clone_color_option['label'].', '.$clone_size_option['label'];
+                    $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clone_name)));
+                    $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $slug;
                 } catch (\Exception $e){
 
                 }
