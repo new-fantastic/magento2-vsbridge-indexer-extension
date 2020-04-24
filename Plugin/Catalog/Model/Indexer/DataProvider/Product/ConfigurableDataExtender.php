@@ -71,15 +71,15 @@ class ConfigurableDataExtender {
         /* @var \Divante\VsbridgeIndexerCore\Index\IndexOperations $indexOperations */
         $this->categoryResource = $this->objectManager->create("Divante\VsbridgeIndexerCatalog\Model\ResourceModel\Product\Category");
 
-        $docs = $this->addHreflangUrls($docs);
+        $docs = $this->addDiscountAmount($docs, $storeId);
 
         $docs = $this->categoryNames->prepareAditionalIndexerData($this->loadedConfigurableIds, $docs, $storeId, Configurable::TYPE_CODE);
 
         $docs = $this->cloneConfigurableColors($docs,$storeId);
-        
-        $docs = $this->addDiscountAmount($docs, $storeId);
 
-        $docs = $this->extendDataWithCategoryNew($docs,$storeId);
+        $docs = $this->addHreflangUrls($docs);
+
+        // $docs = $this->extendDataWithCategoryNew($docs,$storeId);
 
         return $docs;
     }
@@ -113,130 +113,177 @@ class ConfigurableDataExtender {
 
             $has_colors = false;
             $colors = null;
-            foreach ($indexDataItem['configurable_options'] as $option) {
-                if ( $option['attribute_code'] === 'color' ) {
-                    /**
-                     * For some reason, product configurations can be added without adding values in the configurable,
-                     * make sure values exist
-                     */
-                    if(!empty($option['values'])) {
-                        $has_colors = true;
-                        $colors = $option['values'];
-                    }
-                    break;
-                }
-            }
-
-            if ( !$has_colors) {
-                $cloneId = $this->getIdForClonedItem($indexDataItem);
+            foreach ($indexDataItem['configurable_children'] as $child) {
+                $cloneId = $indexDataItem['id'].'-'.$child['color'].'-'.$child['size'];
                 $clones[$cloneId] = $indexDataItem;
-
-                if(!empty($indexDataItem['color'])){
-                    $clones[$cloneId]['clone_color_id'] = isset($indexDataItem['color']) ? $indexDataItem['color'] : $indexDataItem['configurable_children'][0]['color'];
-                    $clones[$cloneId]['sku'] = $indexDataItem['sku'].'-'.$indexDataItem['color'];
-                    $clone_color_option = $this->loadOptionById->execute(
-                        'color',
-                        $clones[$cloneId]['clone_color_id'],
-                        $storeId
-                    );
-                    $clones[$cloneId]['clone_color_label'] = $clone_color_option['label'];
-                    $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
-                    $clones[$cloneId]['clone_name'] = $indexDataItem['name'].' '.$clones[$cloneId]['clone_color_label'];
-
-                    // if ($clones[$cloneId]['product_collection']) {
-                    //     $product_collection_option = $this->loadOptionById->execute(
-                    //         'product_collection',
-                    //         $clones[$cloneId]['product_collection'],
-                    //         $storeId
-                    //     );
-                    //     $clones[$cloneId]['product_collection_label'] = $product_collection_option['label'];
-                    // }
-
-                    $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clones[$cloneId]['clone_name'])));
-
-
-                } else {
-                    $clones[$cloneId]['sku'] = $indexDataItem['sku'];
-                }
-
-                $clones[$cloneId]['size_in_color_options'] = $clones[$cloneId]['size_options'];
+                $clones[$cloneId]['clone_color_id'] = $child['color'];
+                $clones[$cloneId]['clone_size_id'] = $child['size'];
+                $clones[$cloneId]['sku'] = $indexDataItem['sku'].'-'.$child['color'].'-'.$child['size'];
+                $clones[$cloneId]['originalParentSku'] = $indexDataItem['sku'];
+                $clone_color_option = $this->loadOptionById->execute(
+                    'color',
+                    $clones[$cloneId]['clone_color_id'],
+                    $storeId
+                );
+                $clone_size_option = $this->loadOptionById->execute(
+                    'size',
+                    $clones[$cloneId]['clone_size_id'],
+                    $storeId
+                );
+                $clones[$cloneId]['clone_color_label'] = $clone_color_option['label'];
+                $clones[$cloneId]['clone_size_label'] = $clone_size_option['label'];
+                // $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
+                $clones[$cloneId]['clone_name'] = $indexDataItem['name'].', '.$clones[$cloneId]['clone_color_label'].', '.$clones[$cloneId]['clone_size_label'];
+                $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clones[$cloneId]['clone_name'])));
+                $clones[$cloneId]['clone_of'] = $child['sku'];
                 $clones[$cloneId]['is_clone'] = 2;
 
-            } else {
-                if(!empty($colors)){
-                    foreach ($colors as $color) {
-                        $clone_color = strtolower(str_ireplace(' ', '-', $color['label']));
-                        $cloneId = $product_id.'-'.$color['value_index'];
-                        $clones[$cloneId] = $indexDataItem;
-                        $clones[$cloneId]['clone_color_label'] = $color['label'];
-                        $clones[$cloneId]['clone_color_id'] = $color['value_index'];
-                        $clones[$cloneId]['sku'] = $indexDataItem['sku'].'-'.$color['value_index'];
-                        $clones[$cloneId]['is_clone'] = 1;
-                        $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
-                        $clones[$cloneId]['clone_name'] = $indexDataItem['name'].' '.$color['label'];
-                        // if ($clones[$cloneId]['product_collection']) {
-                        //     $product_collection_option = $this->loadOptionById->execute(
-                        //         'product_collection',
-                        //         $clones[$cloneId]['product_collection'],
-                        //         $storeId
-                        //     );
-                        //     $clones[$cloneId]['product_collection_label'] = $product_collection_option['label'];
-                        // }
+                $category_data =  $this->getCategoryData($storeId, $child['id']);
+                $clones[$cloneId]['category_new'] = $category_data['category_new'];
+                $clones[$cloneId]['category'] = $category_data['category'];
 
-                        // Set final price from lowest price from child in color
-                        $keys = array(
-                            'final_price_incl_tax',
-                            'final_price',
-                            'price_incl_tax',
-                            'regular_price'
-                        );
+                $keys = array(
+                    'final_price_incl_tax',
+                    'final_price',
+                    'price_incl_tax',
+                    'regular_price',
+                    'status',
+                    'visibility',
+                    'size',
+                    'color'
+                );
 
-                        $values = array(
-                            'final_price_incl_tax' => -1,
-                            'final_price' => -1,
-                            'price_incl_tax' => -1,
-                            'regular_price' => -1
-                        );
-
-                        if (array_key_exists('configurable_children', $clones[$cloneId]) && is_iterable($clones[$cloneId]['configurable_children'])) {
-                            foreach ($clones[$cloneId]['configurable_children'] as $child) {
-                                if ($child['color'] != $color['value_index']) {
-                                    continue;
-                                }
-                                
-                                // size_in_color_options stuff
-                                if (!isset($clones[$cloneId]['size_in_color_options'] )) {
-                                    $clones[$cloneId]['size_in_color_options'] = [];
-                                }
-                                if (isset($child['size'])) {
-                                    $clones[$cloneId]['size_in_color_options'][] = intval($child['size']);
-                                }
-                                // Price stuff
-                                foreach($keys as $key) {
-                                    if (isset($child[$key])) {
-                                        if ($child[$key] > 0 && ($values[$key] == -1 || $child[$key] < $values[$key])) {
-                                            $values[$key] = $child[$key];
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        if (isset($clones[$cloneId]['size_in_color_options'] )) {
-                            $clones[$cloneId]['size_in_color_options'] = array_unique($clones[$cloneId]['size_in_color_options']);
-                        }
-
-                        foreach($values as $key => $value) {
-                            if ($value > 0) {
-                                $clones[$cloneId][$key] = $value;
-                            }
-                        }
-
-                        $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clones[$cloneId]['clone_name'])));
-
+                foreach ($keys as $key) {
+                    if (isset($child[$key])) {
+                        $clones[$cloneId][$key] = $child[$key];
                     }
                 }
             }
+
+            // foreach ($indexDataItem['configurable_options'] as $option) {
+            //     if ( $option['attribute_code'] === 'color' ) {
+            //         /**
+            //          * For some reason, product configurations can be added without adding values in the configurable,
+            //          * make sure values exist
+            //          */
+            //         if(!empty($option['values'])) {
+            //             $has_colors = true;
+            //             $colors = $option['values'];
+            //         }
+            //         break;
+            //     }
+            // }
+
+            // if ( !$has_colors) {
+            //     $cloneId = $this->getIdForClonedItem($indexDataItem);
+            //     $clones[$cloneId] = $indexDataItem;
+
+            //     if(!empty($indexDataItem['color'])){
+            //         $clones[$cloneId]['clone_color_id'] = isset($indexDataItem['color']) ? $indexDataItem['color'] : $indexDataItem['configurable_children'][0]['color'];
+            //         $clones[$cloneId]['sku'] = $indexDataItem['sku'].'-'.$indexDataItem['color'];
+            //         $clone_color_option = $this->loadOptionById->execute(
+            //             'color',
+            //             $clones[$cloneId]['clone_color_id'],
+            //             $storeId
+            //         );
+            //         $clones[$cloneId]['clone_color_label'] = $clone_color_option['label'];
+            //         $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
+            //         $clones[$cloneId]['clone_name'] = $indexDataItem['name'].' '.$clones[$cloneId]['clone_color_label'];
+
+            //         // if ($clones[$cloneId]['product_collection']) {
+            //         //     $product_collection_option = $this->loadOptionById->execute(
+            //         //         'product_collection',
+            //         //         $clones[$cloneId]['product_collection'],
+            //         //         $storeId
+            //         //     );
+            //         //     $clones[$cloneId]['product_collection_label'] = $product_collection_option['label'];
+            //         // }
+
+            //         $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clones[$cloneId]['clone_name'])));
+
+
+            //     } else {
+            //         $clones[$cloneId]['sku'] = $indexDataItem['sku'];
+            //     }
+
+            //     $clones[$cloneId]['size_in_color_options'] = $clones[$cloneId]['size_options'];
+            //     $clones[$cloneId]['is_clone'] = 2;
+
+            // } else {
+            //     if(!empty($colors)){
+            //         foreach ($colors as $color) {
+            //             $clone_color = strtolower(str_ireplace(' ', '-', $color['label']));
+            //             $cloneId = $product_id.'-'.$color['value_index'];
+            //             $clones[$cloneId] = $indexDataItem;
+            //             $clones[$cloneId]['clone_color_label'] = $color['label'];
+            //             $clones[$cloneId]['clone_color_id'] = $color['value_index'];
+            //             $clones[$cloneId]['sku'] = $indexDataItem['sku'].'-'.$color['value_index'];
+            //             $clones[$cloneId]['is_clone'] = 1;
+            //             $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
+            //             $clones[$cloneId]['clone_name'] = $indexDataItem['name'].' '.$color['label'];
+            //             // if ($clones[$cloneId]['product_collection']) {
+            //             //     $product_collection_option = $this->loadOptionById->execute(
+            //             //         'product_collection',
+            //             //         $clones[$cloneId]['product_collection'],
+            //             //         $storeId
+            //             //     );
+            //             //     $clones[$cloneId]['product_collection_label'] = $product_collection_option['label'];
+            //             // }
+
+            //             // Set final price from lowest price from child in color
+            //             $keys = array(
+            //                 'final_price_incl_tax',
+            //                 'final_price',
+            //                 'price_incl_tax',
+            //                 'regular_price'
+            //             );
+
+            //             $values = array(
+            //                 'final_price_incl_tax' => -1,
+            //                 'final_price' => -1,
+            //                 'price_incl_tax' => -1,
+            //                 'regular_price' => -1
+            //             );
+
+            //             if (array_key_exists('configurable_children', $clones[$cloneId]) && is_iterable($clones[$cloneId]['configurable_children'])) {
+            //                 foreach ($clones[$cloneId]['configurable_children'] as $child) {
+            //                     if ($child['color'] != $color['value_index']) {
+            //                         continue;
+            //                     }
+                                
+            //                     // size_in_color_options stuff
+            //                     if (!isset($clones[$cloneId]['size_in_color_options'] )) {
+            //                         $clones[$cloneId]['size_in_color_options'] = [];
+            //                     }
+            //                     if (isset($child['size'])) {
+            //                         $clones[$cloneId]['size_in_color_options'][] = intval($child['size']);
+            //                     }
+            //                     // Price stuff
+            //                     foreach($keys as $key) {
+            //                         if (isset($child[$key])) {
+            //                             if ($child[$key] > 0 && ($values[$key] == -1 || $child[$key] < $values[$key])) {
+            //                                 $values[$key] = $child[$key];
+            //                             }
+            //                         }
+            //                     }
+            //                 }
+            //             }
+
+            //             if (isset($clones[$cloneId]['size_in_color_options'] )) {
+            //                 $clones[$cloneId]['size_in_color_options'] = array_unique($clones[$cloneId]['size_in_color_options']);
+            //             }
+
+            //             foreach($values as $key => $value) {
+            //                 if ($value > 0) {
+            //                     $clones[$cloneId][$key] = $value;
+            //                 }
+            //             }
+
+            //             $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clones[$cloneId]['clone_name'])));
+
+            //         }
+            //     }
+            // }
         }
 
         return $indexData + $clones;
@@ -323,145 +370,145 @@ class ConfigurableDataExtender {
         return $docs;
     }
 
-    private function extendDataWithCategoryNew($indexData,$storeId)
-    {
-        foreach ($indexData as $product_id => $indexDataItem) {
+    // private function extendDataWithCategoryNew($indexData,$storeId)
+    // {
+    //     foreach ($indexData as $product_id => $indexDataItem) {
 
-            if ($indexData[$product_id]['type_id'] !== 'configurable') {
-                continue;
-            }
+    //         if ($indexData[$product_id]['type_id'] !== 'configurable') {
+    //             continue;
+    //         }
 
-            if ( ! isset($indexData[$product_id]['configurable_options']) ) {
-                continue;
-            }
+    //         if ( ! isset($indexData[$product_id]['configurable_options']) ) {
+    //             continue;
+    //         }
 
-            $has_colors = false;
-            $colors = null;
-            foreach ($indexData[$product_id]['configurable_options'] as $option) {
-                if ( $option['attribute_code'] === 'color' ) {
-                    /**
-                     * For some reason, product configurations can be added without adding values in the configurable,
-                     * make sure values exist
-                     */
-                    if(!empty($option['values'])) {
-                        $has_colors = true;
-                        $colors = $option['values'];
-                    }
-                    break;
-                }
-            }
+    //         $has_colors = false;
+    //         $colors = null;
+    //         foreach ($indexData[$product_id]['configurable_options'] as $option) {
+    //             if ( $option['attribute_code'] === 'color' ) {
+    //                 /**
+    //                  * For some reason, product configurations can be added without adding values in the configurable,
+    //                  * make sure values exist
+    //                  */
+    //                 if(!empty($option['values'])) {
+    //                     $has_colors = true;
+    //                     $colors = $option['values'];
+    //                 }
+    //                 break;
+    //             }
+    //         }
 
-            if ( !$has_colors) {
-                $wasChildInThisColor = false;
+    //         if ( !$has_colors) {
+    //             $wasChildInThisColor = false;
 
-                foreach($indexData[$product_id]['configurable_children'] as $child_data) {
+    //             foreach($indexData[$product_id]['configurable_children'] as $child_data) {
 
-                    if (!$wasChildInThisColor) {
-                        $wasChildInThisColor = true;
+    //                 if (!$wasChildInThisColor) {
+    //                     $wasChildInThisColor = true;
 
-                        $category_data =  $this->getCategoryData($storeId, $child_data['id']);
-                        $indexData[$product_id]['category_new'] = $category_data['category_new'];
-                        $indexData[$product_id]['category'] = $category_data['category'];
+    //                     $category_data =  $this->getCategoryData($storeId, $child_data['id']);
+    //                     $indexData[$product_id]['category_new'] = $category_data['category_new'];
+    //                     $indexData[$product_id]['category'] = $category_data['category'];
 
-                        continue;
-                    } else {
-                        //loop through the children and get the values of the smallest size child with the same color
-                        $categories_data =  $this->getCategoryData($storeId, $child_data['id']);
-                        foreach ($categories_data['category_new'] as $category_id => $valueToCheck) {
-                            if (!isset($indexData[$product_id]['category_new'])) {
-                                // Is it even possible?
-                                continue;
-                            }
-                            $currentValue = isset($indexData[$product_id]['category_new'][$category_id]) ? $indexData[$product_id]['category_new'][$category_id] : 0;
-                            // If new value is 0, do nothing
-                            if ($valueToCheck == 0) {
-                                continue;
-                            }
-                            // If current value is 0, and new is not 0. Set it
-                            if ($currentValue == 0) {
-                                // $clones[$cloneId]['category'][$category_id] = $valueToCheck;
-                                $indexData[$product_id]['category_new'][$category_id] = $valueToCheck;
-                                continue;
-                            }
+    //                     continue;
+    //                 } else {
+    //                     //loop through the children and get the values of the smallest size child with the same color
+    //                     $categories_data =  $this->getCategoryData($storeId, $child_data['id']);
+    //                     foreach ($categories_data['category_new'] as $category_id => $valueToCheck) {
+    //                         if (!isset($indexData[$product_id]['category_new'])) {
+    //                             // Is it even possible?
+    //                             continue;
+    //                         }
+    //                         $currentValue = isset($indexData[$product_id]['category_new'][$category_id]) ? $indexData[$product_id]['category_new'][$category_id] : 0;
+    //                         // If new value is 0, do nothing
+    //                         if ($valueToCheck == 0) {
+    //                             continue;
+    //                         }
+    //                         // If current value is 0, and new is not 0. Set it
+    //                         if ($currentValue == 0) {
+    //                             // $clones[$cloneId]['category'][$category_id] = $valueToCheck;
+    //                             $indexData[$product_id]['category_new'][$category_id] = $valueToCheck;
+    //                             continue;
+    //                         }
 
-                            // If both are none 0, compare
-                            if ($valueToCheck < $currentValue) {
-                                // $clones[$cloneId]['category'][$category_id] = $valueToCheck;
-                                $indexData[$product_id]['category_new'][$category_id] = $valueToCheck;
-                                continue;
-                            }
-                        }
-                    }
-                }
+    //                         // If both are none 0, compare
+    //                         if ($valueToCheck < $currentValue) {
+    //                             // $clones[$cloneId]['category'][$category_id] = $valueToCheck;
+    //                             $indexData[$product_id]['category_new'][$category_id] = $valueToCheck;
+    //                             continue;
+    //                         }
+    //                     }
+    //                 }
+    //             }
 
-            } else {
-                if(!empty($colors)){
-                    foreach ($colors as $color) {
+    //         } else {
+    //             if(!empty($colors)){
+    //                 foreach ($colors as $color) {
 
-                        $wasChildInThisColor = false;
-                        //loop through the children and get the values of the smallest size child with the same color
-                        foreach($indexData[$product_id]['configurable_children'] as $child_data) {
-                            if(!empty($child_data['color']) && $child_data['color'] == $color['value_index']){
+    //                     $wasChildInThisColor = false;
+    //                     //loop through the children and get the values of the smallest size child with the same color
+    //                     foreach($indexData[$product_id]['configurable_children'] as $child_data) {
+    //                         if(!empty($child_data['color']) && $child_data['color'] == $color['value_index']){
 
-                                if (!$wasChildInThisColor) {
-                                    $wasChildInThisColor = true;
+    //                             if (!$wasChildInThisColor) {
+    //                                 $wasChildInThisColor = true;
 
-                                    $category_data =  $this->getCategoryData($storeId, $child_data['id']);
-                                    $indexData[$product_id]['category_new'] = $category_data['category_new'];
-                                    $indexData[$product_id]['category'] = $category_data['category'];
-                                    continue;
-                                } else {
-                                    $categories_data =  $this->getCategoryData($storeId, $child_data['id']);
-                                    foreach ($categories_data['category_new'] as $category_id => $valueToCheck) {
-                                        if (!isset($indexData[$product_id]['category_new'])) {
-                                            // Is it even possible?
-                                            continue;
-                                        }
-                                        $currentValue = isset($indexData[$product_id]['category_new'][$category_id]) ? $indexData[$product_id]['category_new'][$category_id] : 0;
-                                        // If new value is 0, do nothing
-                                        if ($valueToCheck == 0) {
-                                            continue;
-                                        }
-                                        // If current value is 0, and new is not 0. Set it
-                                        if ($currentValue == 0) {
-                                            // $clones[$cloneId]['category'][$category_id] = $valueToCheck;
-                                            $indexData[$product_id]['category_new'][$category_id] = $valueToCheck;
-                                            continue;
-                                        }
+    //                                 $category_data =  $this->getCategoryData($storeId, $child_data['id']);
+    //                                 $indexData[$product_id]['category_new'] = $category_data['category_new'];
+    //                                 $indexData[$product_id]['category'] = $category_data['category'];
+    //                                 continue;
+    //                             } else {
+    //                                 $categories_data =  $this->getCategoryData($storeId, $child_data['id']);
+    //                                 foreach ($categories_data['category_new'] as $category_id => $valueToCheck) {
+    //                                     if (!isset($indexData[$product_id]['category_new'])) {
+    //                                         // Is it even possible?
+    //                                         continue;
+    //                                     }
+    //                                     $currentValue = isset($indexData[$product_id]['category_new'][$category_id]) ? $indexData[$product_id]['category_new'][$category_id] : 0;
+    //                                     // If new value is 0, do nothing
+    //                                     if ($valueToCheck == 0) {
+    //                                         continue;
+    //                                     }
+    //                                     // If current value is 0, and new is not 0. Set it
+    //                                     if ($currentValue == 0) {
+    //                                         // $clones[$cloneId]['category'][$category_id] = $valueToCheck;
+    //                                         $indexData[$product_id]['category_new'][$category_id] = $valueToCheck;
+    //                                         continue;
+    //                                     }
 
-                                        // If both are none 0, compare
-                                        if ($valueToCheck < $currentValue) {
-                                            // $clones[$cloneId]['category'][$category_id] = $valueToCheck;
-                                            $indexData[$product_id]['category_new'][$category_id] = $valueToCheck;
-                                            continue;
-                                        }
-                                    }
-                                }
+    //                                     // If both are none 0, compare
+    //                                     if ($valueToCheck < $currentValue) {
+    //                                         // $clones[$cloneId]['category'][$category_id] = $valueToCheck;
+    //                                         $indexData[$product_id]['category_new'][$category_id] = $valueToCheck;
+    //                                         continue;
+    //                                     }
+    //                                 }
+    //                             }
 
-                            }
-                        }
+    //                         }
+    //                     }
 
-                    }
-                }
-            }
+    //                 }
+    //             }
+    //         }
 
-        }
-        return $indexData;
-    }
+    //     }
+    //     return $indexData;
+    // }
 
-    /**
-     * @param $indexDataItem
-     * @return string
-     */
-    private function getIdForClonedItem($indexDataItem): string
-    {
-        if (!empty($indexDataItem['color'])) {
-            $cloneId = $indexDataItem['id'] . '-' . $indexDataItem['color'];
-        } else {
-            $cloneId = $indexDataItem['id'];
-        }
-        return (string) $cloneId;
-    }
+    // /**
+    //  * @param $indexDataItem
+    //  * @return string
+    //  */
+    // private function getIdForClonedItem($indexDataItem): string
+    // {
+    //     if (!empty($indexDataItem['color'])) {
+    //         $cloneId = $indexDataItem['id'] . '-' . $indexDataItem['color'];
+    //     } else {
+    //         $cloneId = $indexDataItem['id'];
+    //     }
+    //     return (string) $cloneId;
+    // }
 
     private function addHreflangUrls($indexData)
     {
@@ -482,7 +529,7 @@ class ConfigurableDataExtender {
 
             foreach($stores as $store){
                 try {
-                    $product = $productRepository->get($indexData[$product_id]['sku'], false, $store->getId());
+                    $product = $productRepository->get($indexData[$product_id]['originalParentSku'], false, $store->getId());
 
                     /* @TODO: once approved, move out of this loop */
                     if (!isset($this->storeLocales[$store->getId()])) {
@@ -490,8 +537,19 @@ class ConfigurableDataExtender {
                         $locale = $configReader->getValue('general/locale/code', 'website', $website->getCode());
                         $this->storeLocales[$store->getId()] = $locale;
                     }
-
-                    $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $productRewrites->getUrlPath($product);
+                    $clone_color_option = $this->loadOptionById->execute(
+                        'color',
+                        $indexDataItem['clone_color_id'],
+                        $store->getId()
+                    );
+                    $clone_size_option = $this->loadOptionById->execute(
+                        'size',
+                        $indexDataItem['clone_size_id'],
+                        $store->getId()
+                    );
+                    $clone_name = $product['name'].', '.$clone_color_option['label'].', '.$clone_size_option['label'];
+                    $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clone_name)));
+                    $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $slug;
                 } catch (\Exception $e){
 
                 }
@@ -515,15 +573,15 @@ class ConfigurableDataExtender {
              */
             $this->loadedConfigurableIds[] = $product_id;
 
-            $configurableDiscountAmount = null;
-            if (isset($indexDataItem['final_price']) && isset($indexDataItem['regular_price'])) {
-                $configurableFinalPrice = $indexDataItem['final_price'];
-                $configurableRegularPrice = $indexDataItem['regular_price'];
-                if ($configurableFinalPrice && $configurableRegularPrice) {
-                    $configurableDiscountAmount = intval(round(100 - (($configurableFinalPrice / $configurableRegularPrice) * 100)));
-                }
-            }
-            $indexData[$product_id]['discount_amount'] = $configurableDiscountAmount;
+            // $configurableDiscountAmount = null;
+            // if (isset($indexDataItem['final_price']) && isset($indexDataItem['regular_price'])) {
+            //     $configurableFinalPrice = $indexDataItem['final_price'];
+            //     $configurableRegularPrice = $indexDataItem['regular_price'];
+            //     if ($configurableFinalPrice && $configurableRegularPrice) {
+            //         $configurableDiscountAmount = intval(round(100 - (($configurableFinalPrice / $configurableRegularPrice) * 100)));
+            //     }
+            // }
+            // $indexData[$product_id]['discount_amount'] = $configurableDiscountAmount;
 
             if (array_key_exists('configurable_children', $indexDataItem) && is_iterable($indexDataItem['configurable_children'])) {
                 foreach ($indexDataItem['configurable_children'] as $key => $child) {
