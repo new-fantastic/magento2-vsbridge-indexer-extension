@@ -73,7 +73,7 @@ class ConfigurableDataExtender {
 
         $docs = $this->addDiscountAmount($docs, $storeId);
 
-        $docs = $this->categoryNames->prepareAditionalIndexerData($this->loadedConfigurableIds, $docs, $storeId, Configurable::TYPE_CODE);
+        $docs = $this->categoryNames->prepareAditionalIndexerData($this->loadedConfigurableIds, $docs, $storeId, 'simple');
 
         $docs = $this->cloneConfigurableColors($docs,$storeId);
 
@@ -87,6 +87,7 @@ class ConfigurableDataExtender {
     private function cloneConfigurableColors($indexData,$storeId)
     {
         $clones = [];
+        $productRewrites = $this->objectManager->create(ProductUrlPathGenerator::class);
 
         foreach ($indexData as $product_id => $indexDataItem) {
 
@@ -114,6 +115,9 @@ class ConfigurableDataExtender {
             $has_colors = false;
             $colors = null;
             foreach ($indexDataItem['configurable_children'] as $child) {
+                /**
+                 * Preparing configurable product ids
+                 */
                 $cloneId = $indexDataItem['id'].'-'.$child['color'].'-'.$child['size'];
                 $clones[$cloneId] = $indexDataItem;
                 $clones[$cloneId]['clone_color_id'] = $child['color'];
@@ -133,11 +137,16 @@ class ConfigurableDataExtender {
                 $clones[$cloneId]['clone_color_label'] = $clone_color_option['label'];
                 $clones[$cloneId]['clone_size_label'] = $clone_size_option['label'];
                 // $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
-                $clones[$cloneId]['clone_name'] = $indexDataItem['name'].', '.$clones[$cloneId]['clone_color_label'].', '.$clones[$cloneId]['clone_size_label'];
-                $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clones[$cloneId]['clone_name'])));
+                $clones[$cloneId]['clone_name'] = $child['name'].', '.$clones[$cloneId]['clone_color_label'].', '.$clones[$cloneId]['clone_size_label'];
+                $collection = isset($indexData[intval($child['id'])]['collections_names'][0]) ? $indexData[intval($child['id'])]['collections_names'][0] : '';
+                $clones[$cloneId]['collection_name'] = $collection;
+                if (strlen($collection) > 0) {
+                    $collection .= ' ';
+                }
+                $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $collection.$clones[$cloneId]['clone_name'])));
                 $clones[$cloneId]['clone_of'] = $child['sku'];
                 $clones[$cloneId]['is_clone'] = 2;
-
+                
                 $category_data =  $this->getCategoryData($storeId, $child['id']);
                 $clones[$cloneId]['category_new'] = $category_data['category_new'];
                 $clones[$cloneId]['category'] = $category_data['category'];
@@ -529,7 +538,7 @@ class ConfigurableDataExtender {
 
             foreach($stores as $store){
                 try {
-                    $product = $productRepository->get($indexData[$product_id]['originalParentSku'], false, $store->getId());
+                    $product = $productRepository->get($indexData[$product_id]['clone_of'], false, $store->getId());
 
                     /* @TODO: once approved, move out of this loop */
                     if (!isset($this->storeLocales[$store->getId()])) {
@@ -547,7 +556,8 @@ class ConfigurableDataExtender {
                         $indexDataItem['clone_size_id'],
                         $store->getId()
                     );
-                    $clone_name = $product['name'].', '.$clone_color_option['label'].', '.$clone_size_option['label'];
+                    $collection = isset($indexDataItem['collections_names']) && isset($indexDataItem['collections_names'][0]) ? $indexDataItem['collections_names'][0].' ' : '';
+                    $clone_name = $collection.$product['name'].', '.$clone_color_option['label'].', '.$clone_size_option['label'];
                     $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clone_name)));
                     $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $slug;
                 } catch (\Exception $e){
@@ -568,11 +578,6 @@ class ConfigurableDataExtender {
                 continue;
             }
 
-            /**
-             * Preparing configurable product ids
-             */
-            $this->loadedConfigurableIds[] = $product_id;
-
             // $configurableDiscountAmount = null;
             // if (isset($indexDataItem['final_price']) && isset($indexDataItem['regular_price'])) {
             //     $configurableFinalPrice = $indexDataItem['final_price'];
@@ -585,6 +590,10 @@ class ConfigurableDataExtender {
 
             if (array_key_exists('configurable_children', $indexDataItem) && is_iterable($indexDataItem['configurable_children'])) {
                 foreach ($indexDataItem['configurable_children'] as $key => $child) {
+                    /**
+                     * Preparing configurable product ids
+                     */
+                    $this->loadedConfigurableIds[] = $child['id'];
                     $childDiscountAmount = null;
                     if (isset($indexDataItem['is_clone']) && $indexDataItem['is_clone'] == 1 && $child['color'] != $indexDataItem['clone_color_id']) {
                         continue;
