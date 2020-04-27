@@ -113,9 +113,9 @@ class CategoryNames extends DataObject
             $productCategoryData = $this->getCategoryIdForProducts($productIds, $storeId);
 
             foreach ($indexData as $productId => $indexDataItem) {
-                if ($indexDataItem['type_id'] != $productType) {
-                    continue;
-                }
+                // if ($indexDataItem['type_id'] != $productType) {
+                //     continue;
+                // }
 
                 if (!empty($roomSubcategoryData) || !empty($collectionSubcategoryData)) {
                     $productCategoryIds = $productCategoryData[$productId] ?? '';

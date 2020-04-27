@@ -38,7 +38,9 @@ class BundleDataExtender
         $result = $this->addDiscountAmount($result, $storeId);
 
         $result = $this->categoryNames->prepareAditionalIndexerData($this->loadedBundleIds, $result, $storeId, 'bundle');
-
+        
+        $result = $this->slugWithCollection($result, $storeId);
+        
         return $result;
     }
 
@@ -125,6 +127,28 @@ class BundleDataExtender
             }
 
             $indexData[$product_id]['discount'] = $discountAmount;
+        }
+        return $indexData;
+    }
+
+    private function slugWithCollection($indexData, $storeId)
+    {
+        foreach ($indexData as $product_id => $indexDataItem) {
+            if ($indexData[$product_id]['type_id'] != 'bundle') {
+                continue;
+            }
+            // Add slug_from_name for pretty URLs
+            // I did same for Configurables
+            // These functions are just equal `slugify`
+            // $indexDataItem['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $indexDataItem['name'])));
+            $collection = isset($indexData[$product_id]['collections_names'][0]) ? $indexData[$product_id]['collections_names'][0] : '';
+            $indexData[$product_id]['collection_name'] = $collection;
+            if (strlen($collection) > 0) {
+                $collection .= ' ';
+            }
+            $indexData[$product_id]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $collection.$indexDataItem['name'])));
+
+           
         }
         return $indexData;
     }
