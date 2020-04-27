@@ -133,7 +133,7 @@ class ConfigurableDataExtender {
                 $clones[$cloneId]['clone_color_label'] = $clone_color_option['label'];
                 $clones[$cloneId]['clone_size_label'] = $clone_size_option['label'];
                 // $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
-                $clones[$cloneId]['clone_name'] = $indexDataItem['name'].', '.$clones[$cloneId]['clone_color_label'].', '.$clones[$cloneId]['clone_size_label'];
+                $clones[$cloneId]['clone_name'] = $child['name'].', '.$clones[$cloneId]['clone_color_label'].', '.$clones[$cloneId]['clone_size_label'];
                 $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clones[$cloneId]['clone_name'])));
                 $clones[$cloneId]['clone_of'] = $child['sku'];
                 $clones[$cloneId]['is_clone'] = 2;
@@ -529,7 +529,7 @@ class ConfigurableDataExtender {
 
             foreach($stores as $store){
                 try {
-                    $product = $productRepository->get($indexData[$product_id]['originalParentSku'], false, $store->getId());
+                    $product = $productRepository->get($indexData[$product_id]['clone_of'], false, $store->getId());
 
                     /* @TODO: once approved, move out of this loop */
                     if (!isset($this->storeLocales[$store->getId()])) {
@@ -537,19 +537,8 @@ class ConfigurableDataExtender {
                         $locale = $configReader->getValue('general/locale/code', 'website', $website->getCode());
                         $this->storeLocales[$store->getId()] = $locale;
                     }
-                    $clone_color_option = $this->loadOptionById->execute(
-                        'color',
-                        $indexDataItem['clone_color_id'],
-                        $store->getId()
-                    );
-                    $clone_size_option = $this->loadOptionById->execute(
-                        'size',
-                        $indexDataItem['clone_size_id'],
-                        $store->getId()
-                    );
-                    $clone_name = $product['name'].', '.$clone_color_option['label'].', '.$clone_size_option['label'];
-                    $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clone_name)));
-                    $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $slug;
+                    $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $productRewrites->getUrlPath($product);
+                    
                 } catch (\Exception $e){
 
                 }
