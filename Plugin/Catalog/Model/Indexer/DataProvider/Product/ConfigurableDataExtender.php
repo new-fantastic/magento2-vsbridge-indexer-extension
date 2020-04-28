@@ -11,6 +11,7 @@ use Divante\VsbridgeIndexerCore\Api\IndexOperationInterface;
 use Divante\VsbridgeIndexerCore\Console\Command\RebuildEsIndexCommand;
 use Divante\VsbridgeIndexerCore\Config\IndicesSettings;
 use Magento\Catalog\Api\ProductRepositoryInterface;
+use Magento\Catalog\Api\CategoryRepositoryInterface;
 use Magento\CatalogUrlRewrite\Model\ProductUrlPathGenerator;
 use Magento\Framework\App\ObjectManager;
 use Magento\Store\Model\StoreManagerInterface;
@@ -139,11 +140,14 @@ class ConfigurableDataExtender {
                 // $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
                 $clones[$cloneId]['clone_tile_name'] = $child['name'].', '.$clones[$cloneId]['clone_size_label'];
                 $clones[$cloneId]['clone_name'] = $child['name'].', '.$clones[$cloneId]['clone_color_label'].', '.$clones[$cloneId]['clone_size_label'];
+                $rooms = isset($indexData[intval($child['id'])]['rooms_names']) ? $indexData[intval($child['id'])]['collections_names'] : [];
+                $clones[$cloneId]['rooms_names'] = $rooms;
                 $collection = isset($indexData[intval($child['id'])]['collections_names'][0]) ? $indexData[intval($child['id'])]['collections_names'][0] : '';
                 $clones[$cloneId]['collection_name'] = $collection;
                 if (strlen($collection) > 0) {
                     $collection .= ' ';
                 }
+                // $clones[$cloneId]['full_child'] = isset($indexData[intval($child['id'])]) ? $indexData[intval($child['id'])] : [];
                 $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $collection.$clones[$cloneId]['clone_name'])));
                 $clones[$cloneId]['clone_of'] = $child['sku'];
                 $clones[$cloneId]['is_clone'] = 2;
@@ -527,6 +531,7 @@ class ConfigurableDataExtender {
         $websiteManager = $this->objectManager->create("\Magento\Store\Model\Website");
 
         $productRepository = $this->objectManager->create(ProductRepositoryInterface::class);
+        $categoryRepository = $this->objectManager->create(CategoryRepositoryInterface::class);
         $productRewrites = $this->objectManager->create(ProductUrlPathGenerator::class);
 
         $configReader = $this->objectManager->create(\Magento\Framework\App\Config\ScopeConfigInterface::class);
@@ -537,9 +542,25 @@ class ConfigurableDataExtender {
                 continue;
             }
 
+            // 1. find collection name in $indexDataItem['category']
+            // 2. find this id in each lang
+            // 3. comput proper collection name
+
+            $collectionId = 0;
+            foreach ($indexDataItem['category'] as $category) {
+                if (isset($indexDataItem['collection_name']) && $category['name'] == $indexDataItem['collection_name']) {
+                    $collectionId = $category['category_id'];
+                    break;
+                }
+            }
+
             foreach($stores as $store){
                 try {
                     $product = $productRepository->get($indexData[$product_id]['clone_of'], false, $store->getId());
+                    $category = null;
+                    if ($collectionId != 0) {
+                        $category = $categoryRepository->get($collectionId, $store->getId());
+                    }
 
                     /* @TODO: once approved, move out of this loop */
                     if (!isset($this->storeLocales[$store->getId()])) {
@@ -557,7 +578,11 @@ class ConfigurableDataExtender {
                         $indexDataItem['clone_size_id'],
                         $store->getId()
                     );
-                    $collection = isset($indexDataItem['collections_names']) && isset($indexDataItem['collections_names'][0]) ? $indexDataItem['collections_names'][0].' ' : '';
+                    // $collection = isset($indexDataItem['collections_names']) && isset($indexDataItem['collections_names'][0]) ? $indexDataItem['collections_names'][0].' ' : '';
+                    $collection = '';
+                    if ($category != null && isset($category['name'])) {
+                        $collection = $category['name'].' ';
+                    }
                     $clone_name = $collection.$product['name'].', '.$clone_color_option['label'].', '.$clone_size_option['label'];
                     $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clone_name)));
                     $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $slug;
