@@ -155,6 +155,7 @@ class ConfigurableDataExtender {
                 $category_data =  $this->getCategoryData($storeId, $child['id']);
                 $clones[$cloneId]['category_new'] = $category_data['category_new'];
                 $clones[$cloneId]['category'] = $category_data['category'];
+                $clones[$cloneId]['category_ids'] = $category_data['category_ids'];
 
                 $keys = array(
                     'final_price_incl_tax',
@@ -309,6 +310,7 @@ class ConfigurableDataExtender {
         $category_data = [
             'category' => [],
             'category_new' => [],
+            'category_ids' => []
         ];
 
         foreach ($categories as $cat) {
@@ -321,6 +323,7 @@ class ConfigurableDataExtender {
                 'position' => $cat_postion,
             ];
             $category_data['category_new'][$cat_id] = $cat_postion;
+            $category_data['category_ids'][] = $cat_id;
         }
 
         return $category_data;
@@ -613,7 +616,6 @@ class ConfigurableDataExtender {
             //     }
             // }
             // $indexData[$product_id]['discount_amount'] = $configurableDiscountAmount;
-
             if (array_key_exists('configurable_children', $indexDataItem) && is_iterable($indexDataItem['configurable_children'])) {
                 foreach ($indexDataItem['configurable_children'] as $key => $child) {
                     /**
