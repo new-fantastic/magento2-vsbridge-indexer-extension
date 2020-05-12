@@ -61,6 +61,7 @@ class BundleDataExtender
 
             // It is not really a clone. However, it will make me so easier to search in PWA
             $indexData[$product_id]['is_clone'] = 3;
+            $indexData[$product_id]['clone_name'] = $indexData[$product_id]['name'];
 
             // Add slug_from_name for pretty URLs
             // I did same for Configurables
