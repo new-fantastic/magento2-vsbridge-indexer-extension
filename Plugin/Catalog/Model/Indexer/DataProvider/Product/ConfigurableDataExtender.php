@@ -550,10 +550,12 @@ class ConfigurableDataExtender {
             // 3. comput proper collection name
 
             $collectionId = 0;
-            foreach ($indexDataItem['category'] as $category) {
-                if (isset($indexDataItem['collection_name']) && $category['name'] == $indexDataItem['collection_name']) {
-                    $collectionId = $category['category_id'];
-                    break;
+            if (isset($indexDataItem['category'])) {
+                foreach ($indexDataItem['category'] as $category) {
+                    if (isset($indexDataItem['collection_name']) && $category['name'] == $indexDataItem['collection_name']) {
+                        $collectionId = $category['category_id'];
+                        break;
+                    }
                 }
             }
 
