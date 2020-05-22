@@ -18,6 +18,8 @@ use Magento\Store\Model\StoreManagerInterface;
 use Magento\Store\Api\Data\StoreInterface;
 use Magento\ConfigurableProduct\Model\Product\Type\Configurable;
 use Divante\VsbridgeIndexerCatalog\Model\Attribute\LoadOptionLabelById;
+use Divante\VsbridgeIndexerCore\Indexer\GenericIndexerHandler;
+use Divante\VsbridgeIndexerCore\Cache\Processor as CacheProcessor;
 
 class ConfigurableDataExtender {
 
@@ -47,18 +49,58 @@ class ConfigurableDataExtender {
     protected $categoryNames;
 
     /**
+     * Magento product repository
+     *
+     * @var ProductRepositoryInterface
+     */
+    protected $productRepositoryInterface;
+
+    /**
+     * Vsbridge index handler
+     *
+     * @var GenericIndexerHandler
+     */
+    protected $indexerHandler;
+
+    /**
+     * Vsbridge cache processor
+     *
+     * @var CacheProcessor
+     */
+    protected $cacheProcessor;
+ 
+    /**
+     * Magento store manager
+     *
+     * @var StoreManagerInterface
+     */
+    protected $storeManager;
+
+    /**
      * ConfigurableDataExtender constructor.
      *
      * @param \Divante\VsbridgeIndexerCatalog\Model\Attribute\LoadOptionById $loadOptionById
      * @param CategoryNames $categoryNames
+     * @param ProductRepositoryInterface $productRepositoryInterface
+     * @param CacheProcessor $cacheProcessor
+     * @param StoreManagerInterface $storeManager
+     * @param GenericIndexerHandler $indexHandler
      */
-    public function __construct( 
+    public function __construct(
         \Divante\VsbridgeIndexerCatalog\Model\Attribute\LoadOptionById $loadOptionById,
-        CategoryNames $categoryNames
-    ){
+        CategoryNames $categoryNames,
+        ProductRepositoryInterface $productRepositoryInterface,
+        CacheProcessor $cacheProcessor,
+        StoreManagerInterface $storeManager,
+        GenericIndexerHandler $indexerHandler
+    ) {
         $this->loadOptionById = $loadOptionById;
         $this->objectManager = \Magento\Framework\App\ObjectManager::getInstance();
         $this->categoryNames = $categoryNames;
+        $this->productRepositoryInterface = $productRepositoryInterface;
+        $this->cacheProcessor = $cacheProcessor;
+        $this->storeManager = $storeManager;
+        $this->indexerHandler = $indexerHandler;
     }
 
     /**
@@ -174,6 +216,8 @@ class ConfigurableDataExtender {
                     }
                 }
             }
+
+            $this->invalidateDisabledChildProducts($indexDataItem, $storeId);
 
             // foreach ($indexDataItem['configurable_options'] as $option) {
             //     if ( $option['attribute_code'] === 'color' ) {
@@ -653,5 +697,40 @@ class ConfigurableDataExtender {
         return $parentIndexData;
     }
 
+    /**
+     * This method will delete child products from ES which are disabled from magento.
+     *
+     * @param array $indexDataItem
+     * @param int $storeId
+     *
+     * @throws \Magento\Framework\Exception\NoSuchEntityException
+     */
+    private function invalidateDisabledChildProducts($indexDataItem, $storeId)
+    {
+        $configurableProductId = $indexDataItem['entity_id'];
+        $configurableProduct = $this->productRepositoryInterface->getById(
+            $configurableProductId,
+            false,
+            $storeId
+        );
+        $children = $configurableProduct->getTypeInstance()->getUsedProducts($configurableProduct);
+        $childData = [];
+        foreach ($children as $child) {
+            $childData[$child->getId()] = $configurableProductId . '-' . $child->getColor() . '-' . $child->getSize();
+        }
+        $indexDataChildIds = [];
+        $indexDataChildIds = array_column($indexDataItem['configurable_children'], 'id');
+        $disabledProductIds = array_diff(array_keys($childData), $indexDataChildIds);
+        if ($disabledProductIds) {
+            $childData = array_flip($childData);
+            $cloneIds = array_intersect($childData, $disabledProductIds);
+            $cloneIds = array_keys($cloneIds);
+            if ($cloneIds) {
+                //Delete disabled products from ES and clean cache
+                $store = $this->storeManager->getStore($storeId);
+                $this->indexerHandler->cleanUpByTransactionKey($store, $cloneIds);
+                $this->cacheProcessor->cleanCacheByDocIds($storeId, 'product', [$configurableProductId]);
+            }
+        }
+    }
 }
-

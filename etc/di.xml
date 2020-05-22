@@ -13,4 +13,9 @@
         <plugin name="addCustomBundleDataToVueSFCatalogProductIndex"
                 type="CodingMice\VsBridgeIndexerExtension\Plugin\Catalog\Model\Indexer\DataProvider\Product\BundleDataExtender" />
     </type>
+    <type name="CodingMice\VsBridgeIndexerExtension\Plugin\Catalog\Model\Indexer\DataProvider\Product\ConfigurableDataExtender">
+        <arguments>
+            <argument name="indexerHandler" xsi:type="object">Divante\VsbridgeIndexerCatalog\Indexer\ProductIndexerHandlerVirtual</argument>
+        </arguments>
+    </type>
 </config>
