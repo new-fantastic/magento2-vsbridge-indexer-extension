@@ -182,9 +182,11 @@ class ConfigurableDataExtender {
                 // $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
                 $clones[$cloneId]['clone_tile_name'] = $child['name'].', '.$clones[$cloneId]['clone_size_label'];
                 $clones[$cloneId]['clone_name'] = $child['name'].', '.$clones[$cloneId]['clone_color_label'].', '.$clones[$cloneId]['clone_size_label'];
-                $rooms = isset($indexData[intval($child['id'])]['rooms_names']) ? $indexData[intval($child['id'])]['collections_names'] : [];
+                $rooms = $child['rooms_names'] ?? [];
+                $collections = $child['collections_names'] ?? [];
                 $clones[$cloneId]['rooms_names'] = $rooms;
-                $collection = isset($indexData[intval($child['id'])]['collections_names'][0]) ? $indexData[intval($child['id'])]['collections_names'][0] : '';
+                $clones[$cloneId]['collections_names'] = $collections;
+                $collection = $child['collections_names'][0] ?? '';
                 $clones[$cloneId]['collection_name'] = $collection;
                 if (strlen($collection) > 0) {
                     $collection .= ' ';
@@ -309,7 +311,7 @@ class ConfigurableDataExtender {
             //                     if ($child['color'] != $color['value_index']) {
             //                         continue;
             //                     }
-                                
+
             //                     // size_in_color_options stuff
             //                     if (!isset($clones[$cloneId]['size_in_color_options'] )) {
             //                         $clones[$cloneId]['size_in_color_options'] = [];

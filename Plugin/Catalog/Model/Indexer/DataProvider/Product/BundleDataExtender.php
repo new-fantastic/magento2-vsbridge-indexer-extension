@@ -37,10 +37,10 @@ class BundleDataExtender
     {
         $result = $this->addDiscountAmount($result, $storeId);
 
-        $result = $this->categoryNames->prepareAditionalIndexerData($this->loadedBundleIds, $result, $storeId, 'bundle');
-        
+        $result = $this->categoryNames->prepareAditionalIndexerData($this->loadedBundleIds, $result, $storeId, 'bundle', true);
+
         $result = $this->slugWithCollection($result, $storeId);
-        
+
         return $result;
     }
 
