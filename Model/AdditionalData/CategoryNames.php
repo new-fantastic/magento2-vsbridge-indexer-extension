@@ -8,6 +8,7 @@ use Magento\Framework\DB\Select;
 use Magento\Catalog\Api\CategoryRepositoryInterface;
 use Magento\Framework\App\ResourceConnection;
 use Magento\Catalog\Model\ResourceModel\Product\CollectionFactory;
+use Magento\ConfigurableProduct\Model\Product\Type\Configurable;
 
 /**
  * Class CategoryNames
@@ -99,10 +100,11 @@ class CategoryNames extends DataObject
      * @param array $productIds
      * @param array $indexData
      * @param int $storeId
+     * @param bool $skipConfigurableProduct
      *
      * @return array $indexData
      */
-    public function prepareAditionalIndexerData($productIds, $indexData, $storeId, $productType)
+    public function prepareAditionalIndexerData($productIds, $indexData, $storeId, $productType, $skipConfigurableProduct = false)
     {
         $isAdditionalCategoryDataEnable = $this->additionalDataHelper->getAdditionalIndexerDataEnable();
         if ($isAdditionalCategoryDataEnable && !empty($productIds)) {
@@ -112,39 +114,103 @@ class CategoryNames extends DataObject
             $collectionSubcategoryData = $this->getChildCategories($collectionCategoryId, $storeId);
             $productCategoryData = $this->getCategoryIdForProducts($productIds, $storeId);
 
-            foreach ($indexData as $productId => $indexDataItem) {
-                // if ($indexDataItem['type_id'] != $productType) {
-                //     continue;
-                // }
-
-                if (!empty($roomSubcategoryData) || !empty($collectionSubcategoryData)) {
-                    $productCategoryIds = $productCategoryData[$productId] ?? '';
-                    $productCategoryIds = explode(',', $productCategoryIds);
-
-                    if (!empty($productCategoryIds)) {
-                        if (!empty($roomSubcategoryData)) {
-                            $roomCategoryIds = array_keys($roomSubcategoryData);
-                            $validRoomChildCategorys = array_intersect_key($roomSubcategoryData, array_flip($productCategoryIds));
-                            $indexData[$productId]['rooms_names'] = array_column($validRoomChildCategorys, 'name');
-                        } else {
-                            $indexData[$productId]['rooms_names'] = [];
+            if (!empty($roomSubcategoryData) || !empty($collectionSubcategoryData)) {
+                foreach ($indexData as $productId => &$indexDataItem) {
+                    if (!$skipConfigurableProduct) {
+                        if ($indexDataItem['type_id'] == Configurable::TYPE_CODE && array_key_exists('configurable_children', $indexDataItem) && is_iterable($indexDataItem['configurable_children'])) {
+                            $childProducts = $indexDataItem['configurable_children'];
+                            foreach ($childProducts as $childProduct) {
+                                $this->getFinalCategoryNameListForClones($childProduct['id'], $roomSubcategoryData, $collectionSubcategoryData, $productCategoryData, $childProduct);
+                                $updatedChildProducts[] = $childProduct;
+                            }
+                            $indexDataItem['configurable_children'] = $updatedChildProducts;
+                            continue;
                         }
-                        if (!empty($collectionSubcategoryData)) {
-                            $collectionCategoryIds = array_keys($collectionSubcategoryData);
-                            $validCollectionChildCategorys = array_intersect_key($collectionSubcategoryData, array_flip($productCategoryIds));
-                            $indexData[$productId]['collections_names'] = array_column($validCollectionChildCategorys, 'name');
-                        } else {
-                            $indexData[$productId]['collections_names'] = [];
-                        }
-                    } else {
-                        $indexData[$productId]['rooms_names'] = [];
-                        $indexData[$productId]['collections_names'] = [];
                     }
+
+                    if ($indexDataItem['type_id'] != $productType) {
+                        continue;
+                    }
+                    $this->getFinalCategoryNameList($productId, $roomSubcategoryData, $collectionSubcategoryData, $productCategoryData, $indexData);
                 }
             }
         }
 
         return $indexData;
+    }
+
+    /**
+     * Appending the final category name collection to the object for normal products like simple
+     *
+     * @param int $productId
+     * @param array $roomSubcategoryData
+     * @param array $collectionSubcategoryData
+     * @param array $productCategoryData
+     * @param array $indexData
+     */
+    public function getFinalCategoryNameList($productId, $roomSubcategoryData, $collectionSubcategoryData, $productCategoryData, &$indexData)
+    {
+        $productCategoryIds = $productCategoryData[$productId] ?? '';
+        if ($productCategoryIds) {
+            $productCategoryIds = explode(',', $productCategoryIds);
+        }
+
+        if (!empty($productCategoryIds)) {
+            if (!empty($roomSubcategoryData)) {
+                $roomCategoryIds = array_keys($roomSubcategoryData);
+                $validRoomChildCategorys = array_intersect_key($roomSubcategoryData, array_flip($productCategoryIds));
+                $indexData[$productId]['rooms_names'] = array_column($validRoomChildCategorys, 'name');
+            } else {
+                $indexData[$productId]['rooms_names'] = [];
+            }
+            if (!empty($collectionSubcategoryData)) {
+                $collectionCategoryIds = array_keys($collectionSubcategoryData);
+                $validCollectionChildCategorys = array_intersect_key($collectionSubcategoryData, array_flip($productCategoryIds));
+                $indexData[$productId]['collections_names'] = array_column($validCollectionChildCategorys, 'name');
+            } else {
+                $indexData[$productId]['collections_names'] = [];
+            }
+        } else {
+            $indexData[$productId]['rooms_names'] = [];
+            $indexData[$productId]['collections_names'] = [];
+        }
+    }
+
+    /**
+     * Appending the final category name collection to the object for configurable clone products
+     *
+     * @param int $productId
+     * @param array $roomSubcategoryData
+     * @param array $collectionSubcategoryData
+     * @param array $productCategoryData
+     * @param array $childProduct
+     */
+    public function getFinalCategoryNameListForClones($productId, $roomSubcategoryData, $collectionSubcategoryData, $productCategoryData, &$childProduct)
+    {
+        $productCategoryIds = $productCategoryData[$productId] ?? '';
+        if ($productCategoryIds) {
+            $productCategoryIds = explode(',', $productCategoryIds);
+        }
+
+        if (!empty($productCategoryIds)) {
+            if (!empty($roomSubcategoryData)) {
+                $roomCategoryIds = array_keys($roomSubcategoryData);
+                $validRoomChildCategorys = array_intersect_key($roomSubcategoryData, array_flip($productCategoryIds));
+                $childProduct['rooms_names'] = array_column($validRoomChildCategorys, 'name');
+            } else {
+                $childProduct['rooms_names'] = [];
+            }
+            if (!empty($collectionSubcategoryData)) {
+                $collectionCategoryIds = array_keys($collectionSubcategoryData);
+                $validCollectionChildCategorys = array_intersect_key($collectionSubcategoryData, array_flip($productCategoryIds));
+                $childProduct['collections_names'] = array_column($validCollectionChildCategorys, 'name');
+            } else {
+                $childProduct['collections_names'] = [];
+            }
+        } else {
+            $childProduct['rooms_names'] = [];
+            $childProduct['collections_names'] = [];
+        }
     }
 
     /**
@@ -168,7 +234,7 @@ class CategoryNames extends DataObject
             $result = $connection->fetchAll($select);
             $productIdList = array_column($result, 'product_id');
             $categoryIdsList = array_column($result, 'category_ids');
-            $finalResult = array_combine( $productIdList, $categoryIdsList );
+            $finalResult = array_combine($productIdList, $categoryIdsList);
 
         } catch (\Exception $exception) {
             $finalResult = [];
