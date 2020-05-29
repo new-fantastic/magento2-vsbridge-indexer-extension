@@ -119,6 +119,7 @@ class CategoryNames extends DataObject
                     if (!$skipConfigurableProduct) {
                         if ($indexDataItem['type_id'] == Configurable::TYPE_CODE && array_key_exists('configurable_children', $indexDataItem) && is_iterable($indexDataItem['configurable_children'])) {
                             $childProducts = $indexDataItem['configurable_children'];
+                            $updatedChildProducts = [];
                             foreach ($childProducts as $childProduct) {
                                 $this->getFinalCategoryNameListForClones($childProduct['id'], $roomSubcategoryData, $collectionSubcategoryData, $productCategoryData, $childProduct);
                                 $updatedChildProducts[] = $childProduct;
@@ -257,3 +258,4 @@ class CategoryNames extends DataObject
         return $this->connection;
     }
 }
+
