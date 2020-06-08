@@ -202,7 +202,13 @@ class ConfigurableDataExtender {
                 $clones[$cloneId]['category_ids'] = $category_data['category_ids'];
 
                 // Get url_key from the child
-                $clones[$cloneId]['url_key'] = $child['url_key'];
+                if (isset($child['sku'])) {
+                    $productRepository = $this->objectManager->create(ProductRepositoryInterface::class);
+                    $product = $productRepository->get($child['sku'], false, $storeId);
+                    if (isset($product['url_key'])) {
+                        $clones[$cloneId]['url_key'] = $product['url_key'];
+                    }
+                }
 
                 $keys = array(
                     'final_price_incl_tax',
