@@ -201,6 +201,9 @@ class ConfigurableDataExtender {
                 $clones[$cloneId]['category'] = $category_data['category'];
                 $clones[$cloneId]['category_ids'] = $category_data['category_ids'];
 
+                // Get url_key from the child
+                $clones[$cloneId]['url_key'] = $child['url_key'];
+
                 $keys = array(
                     'final_price_incl_tax',
                     'final_price',
