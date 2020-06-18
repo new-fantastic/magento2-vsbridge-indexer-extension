@@ -138,6 +138,8 @@ class BundleDataExtender
             if ($indexData[$product_id]['type_id'] != 'bundle') {
                 continue;
             }
+
+            $indexData[$product_id]['clone_of'] = $indexData[$product_id]['sku'];
             // Add slug_from_name for pretty URLs
             // I did same for Configurables
             // These functions are just equal `slugify`
