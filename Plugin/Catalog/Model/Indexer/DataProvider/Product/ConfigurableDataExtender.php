@@ -227,6 +227,8 @@ class ConfigurableDataExtender {
                         $this->linkResourceModel->setProducts([$child]);
                         $clones[$cloneId]['product_links'] = $this->linkResourceModel->getLinkedProduct($child);
                         $this->linkResourceModel->clear();
+                    } else {
+                        $clones[$cloneId]['product_links'] = [];
                     }
                 }
 
