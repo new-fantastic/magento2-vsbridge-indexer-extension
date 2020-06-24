@@ -4,6 +4,7 @@ namespace CodingMice\VsBridgeIndexerExtension\Plugin\Catalog\Model\Indexer\DataP
 
 use CodingMice\VsBridgeIndexerExtension\Model\AdditionalData\CategoryNames;
 use Divante\VsbridgeIndexerCatalog\Model\ResourceModel\Product\Category as CategoryResource;
+use Divante\VsbridgeIndexerCatalog\Model\ResourceModel\Product\Links as LinkResourceModel;
 use Divante\VsbridgeIndexerCatalog\Model\Indexer\DataProvider\Product\ConfigurableData;
 use Divante\VsbridgeIndexerCatalog\Model\Indexer\DataProvider\Product\MediaGalleryData;
 use Divante\VsbridgeIndexerCore\Api\DataProviderInterface;
@@ -68,13 +69,21 @@ class ConfigurableDataExtender {
      * @var CacheProcessor
      */
     protected $cacheProcessor;
- 
+
     /**
      * Magento store manager
      *
      * @var StoreManagerInterface
      */
     protected $storeManager;
+
+
+    /**
+     * Divante VsbridgeIndexerCatalog Link Resource Model
+     *
+     * @var LinkResourceModel
+     */
+    protected $linkResourceModel;
 
     /**
      * ConfigurableDataExtender constructor.
@@ -92,7 +101,8 @@ class ConfigurableDataExtender {
         ProductRepositoryInterface $productRepositoryInterface,
         CacheProcessor $cacheProcessor,
         StoreManagerInterface $storeManager,
-        GenericIndexerHandler $indexerHandler
+        GenericIndexerHandler $indexerHandler,
+        LinkResourceModel $linkResourceModel
     ) {
         $this->loadOptionById = $loadOptionById;
         $this->objectManager = \Magento\Framework\App\ObjectManager::getInstance();
@@ -101,6 +111,7 @@ class ConfigurableDataExtender {
         $this->cacheProcessor = $cacheProcessor;
         $this->storeManager = $storeManager;
         $this->indexerHandler = $indexerHandler;
+        $this->linkResourceModel = $linkResourceModel;
     }
 
     /**
@@ -195,7 +206,7 @@ class ConfigurableDataExtender {
                 $clones[$cloneId]['slug_from_name'] = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $collection.$clones[$cloneId]['clone_name'])));
                 $clones[$cloneId]['clone_of'] = $child['sku'];
                 $clones[$cloneId]['is_clone'] = 2;
-                
+
                 $category_data =  $this->getCategoryData($storeId, $child['id']);
                 $clones[$cloneId]['category_new'] = $category_data['category_new'];
                 $clones[$cloneId]['category'] = $category_data['category'];
@@ -207,6 +218,17 @@ class ConfigurableDataExtender {
                     $product = $productRepository->get($child['sku'], false, $storeId);
                     if (isset($product['url_key'])) {
                         $clones[$cloneId]['url_key'] = $product['url_key'];
+                    }
+
+                    // Product links for clone products from child products
+                    if ($product->getProductLinks()) {
+                        $child['entity_id'] = $child['id'];
+                        $this->linkResourceModel->clear();
+                        $this->linkResourceModel->setProducts([$child]);
+                        $clones[$cloneId]['product_links'] = $this->linkResourceModel->getLinkedProduct($child);
+                        $this->linkResourceModel->clear();
+                    } else {
+                        $clones[$cloneId]['product_links'] = [];
                     }
                 }
 
