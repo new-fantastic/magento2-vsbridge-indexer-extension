@@ -188,8 +188,8 @@ class ConfigurableDataExtender {
                     $clones[$cloneId]['clone_size_id'],
                     $storeId
                 );
-                $clones[$cloneId]['clone_color_label'] = $clone_color_option['label'];
-                $clones[$cloneId]['clone_size_label'] = $clone_size_option['label'];
+                $clones[$cloneId]['clone_color_label'] = $clone_color_option['label'] ?? '';
+                $clones[$cloneId]['clone_size_label'] = $clone_size_option['label'] ?? '';
                 // $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
                 $clones[$cloneId]['clone_tile_name'] = $child['name'].', '.$clones[$cloneId]['clone_size_label'];
                 $clones[$cloneId]['clone_name'] = $child['name'].', '.$clones[$cloneId]['clone_color_label'].', '.$clones[$cloneId]['clone_size_label'];
