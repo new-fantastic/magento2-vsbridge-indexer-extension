@@ -172,22 +172,29 @@ class ConfigurableDataExtender {
                 /**
                  * Preparing configurable product ids
                  */
+                $clone_color_option = [];
+                $clone_size_option = [];
                 $cloneId = $indexDataItem['id'].'-'.$child['color'].'-'.$child['size'];
                 $clones[$cloneId] = $indexDataItem;
                 $clones[$cloneId]['clone_color_id'] = $child['color'];
                 $clones[$cloneId]['clone_size_id'] = $child['size'];
                 $clones[$cloneId]['sku'] = $indexDataItem['sku'].'-'.$child['color'].'-'.$child['size'];
                 $clones[$cloneId]['originalParentSku'] = $indexDataItem['sku'];
-                $clone_color_option = $this->loadOptionById->execute(
-                    'color',
-                    $clones[$cloneId]['clone_color_id'],
-                    $storeId
-                );
-                $clone_size_option = $this->loadOptionById->execute(
-                    'size',
-                    $clones[$cloneId]['clone_size_id'],
-                    $storeId
-                );
+                if (isset($child['color']) && $child['color'] != null) {
+                    $clone_color_option = $this->loadOptionById->execute(
+                        'color',
+                        $clones[$cloneId]['clone_color_id'],
+                        $storeId
+                    );
+                }
+
+                if (isset($child['size']) && $child['size'] != null) {
+                    $clone_size_option = $this->loadOptionById->execute(
+                        'size',
+                        $clones[$cloneId]['clone_size_id'],
+                        $storeId
+                    );
+                }
                 $clones[$cloneId]['clone_color_label'] = $clone_color_option['label'] ?? '';
                 $clones[$cloneId]['clone_size_label'] = $clone_size_option['label'] ?? '';
                 // $clones[$cloneId]['url_key'] = $indexDataItem['url_key'].'?color='.$clone_color;
@@ -638,6 +645,8 @@ class ConfigurableDataExtender {
 
             foreach($stores as $store){
                 try {
+                    $clone_color_option = [];
+                    $clone_size_option = [];
                     $product = $productRepository->get($indexData[$product_id]['clone_of'], false, $store->getId());
                     $category = null;
                     if ($collectionId != 0) {
@@ -650,22 +659,31 @@ class ConfigurableDataExtender {
                         $locale = $configReader->getValue('general/locale/code', 'website', $website->getCode());
                         $this->storeLocales[$store->getId()] = $locale;
                     }
-                    $clone_color_option = $this->loadOptionById->execute(
-                        'color',
-                        $indexDataItem['clone_color_id'],
-                        $store->getId()
-                    );
-                    $clone_size_option = $this->loadOptionById->execute(
-                        'size',
-                        $indexDataItem['clone_size_id'],
-                        $store->getId()
-                    );
+
+                    if (isset($indexDataItem['clone_color_id']) && $indexDataItem['clone_color_id'] != null) {
+                        $clone_color_option = $this->loadOptionById->execute(
+                            'color',
+                            $indexDataItem['clone_color_id'],
+                            $store->getId()
+                        );
+                    }
+
+                    if (isset($indexDataItem['clone_size_id']) && $indexDataItem['clone_size_id'] != null) {
+                        $clone_size_option = $this->loadOptionById->execute(
+                            'size',
+                            $indexDataItem['clone_size_id'],
+                            $store->getId()
+                        );
+                    }
+                    $cloneColorLabel = $clone_color_option['label'] ?? '';
+                    $cloneSizeLabel = $clone_size_option['label'] ?? '';
+
                     // $collection = isset($indexDataItem['collections_names']) && isset($indexDataItem['collections_names'][0]) ? $indexDataItem['collections_names'][0].' ' : '';
                     $collection = '';
                     if ($category != null && isset($category['name'])) {
                         $collection = $category['name'].' ';
                     }
-                    $clone_name = $collection.$product['name'].', '.$clone_color_option['label'].', '.$clone_size_option['label'];
+                    $clone_name = $collection.$product['name'].', '.$cloneColorLabel.', '.$cloneSizeLabel;
                     $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clone_name)));
                     $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $slug;
                 } catch (\Exception $e){
