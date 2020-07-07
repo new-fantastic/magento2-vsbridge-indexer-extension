@@ -11,6 +11,7 @@ use Divante\VsbridgeIndexerCore\Api\DataProviderInterface;
 use Divante\VsbridgeIndexerCore\Api\IndexOperationInterface;
 use Divante\VsbridgeIndexerCore\Console\Command\RebuildEsIndexCommand;
 use Divante\VsbridgeIndexerCore\Config\IndicesSettings;
+use Egits\VsbridgeIndexerCatalog\Helper\Config as ConfigHelper;
 use Magento\Catalog\Api\ProductRepositoryInterface;
 use Magento\Catalog\Api\CategoryRepositoryInterface;
 use Magento\CatalogUrlRewrite\Model\ProductUrlPathGenerator;
@@ -215,7 +216,7 @@ class ConfigurableDataExtender {
                 $clones[$cloneId]['is_clone'] = 2;
 
                 $category_data =  $this->getCategoryData($storeId, $child['id']);
-                $clones[$cloneId]['category_new'] = $category_data['category_new'];
+                $clones[$cloneId][ConfigHelper::PRODUCT_SORT_ORDER_CATEGORY] = $category_data['category_new'];
                 $clones[$cloneId]['category'] = $category_data['category'];
                 $clones[$cloneId]['category_ids'] = $category_data['category_ids'];
 
