@@ -617,42 +617,18 @@ class ConfigurableDataExtender {
         $storeManager = $this->objectManager->create("\Magento\Store\Model\StoreManager");
         $stores = $storeManager->getStores();
         $websiteManager = $this->objectManager->create("\Magento\Store\Model\Website");
-
-        $productRepository = $this->objectManager->create(ProductRepositoryInterface::class);
-        $categoryRepository = $this->objectManager->create(CategoryRepositoryInterface::class);
-        $productRewrites = $this->objectManager->create(ProductUrlPathGenerator::class);
-
         $configReader = $this->objectManager->create(\Magento\Framework\App\Config\ScopeConfigInterface::class);
 
         foreach ($indexData as $product_id => $indexDataItem) {
             $hrefLangs = [];
-            if ($indexData[$product_id]['type_id'] == 'simple') {
+            if ($indexData[$product_id]['type_id'] == 'simple' || !isset($indexData[$product_id]['clone_of'])) {
                 continue;
-            }
-
-            // 1. find collection name in $indexDataItem['category']
-            // 2. find this id in each lang
-            // 3. comput proper collection name
-
-            $collectionId = 0;
-            if (isset($indexDataItem['category'])) {
-                foreach ($indexDataItem['category'] as $category) {
-                    if (isset($indexDataItem['collection_name']) && $category['name'] == $indexDataItem['collection_name']) {
-                        $collectionId = $category['category_id'];
-                        break;
-                    }
-                }
             }
 
             foreach($stores as $store){
                 try {
-                    $clone_color_option = [];
-                    $clone_size_option = [];
-                    $product = $productRepository->get($indexData[$product_id]['clone_of'], false, $store->getId());
+                    $product = $this->productRepositoryInterface->get($indexData[$product_id]['clone_of'], false, $store->getId());
                     $category = null;
-                    if ($collectionId != 0) {
-                        $category = $categoryRepository->get($collectionId, $store->getId());
-                    }
 
                     /* @TODO: once approved, move out of this loop */
                     if (!isset($this->storeLocales[$store->getId()])) {
@@ -660,33 +636,7 @@ class ConfigurableDataExtender {
                         $locale = $configReader->getValue('general/locale/code', 'website', $website->getCode());
                         $this->storeLocales[$store->getId()] = $locale;
                     }
-
-                    if (isset($indexDataItem['clone_color_id']) && $indexDataItem['clone_color_id'] != null) {
-                        $clone_color_option = $this->loadOptionById->execute(
-                            'color',
-                            $indexDataItem['clone_color_id'],
-                            $store->getId()
-                        );
-                    }
-
-                    if (isset($indexDataItem['clone_size_id']) && $indexDataItem['clone_size_id'] != null) {
-                        $clone_size_option = $this->loadOptionById->execute(
-                            'size',
-                            $indexDataItem['clone_size_id'],
-                            $store->getId()
-                        );
-                    }
-                    $cloneColorLabel = $clone_color_option['label'] ?? '';
-                    $cloneSizeLabel = $clone_size_option['label'] ?? '';
-
-                    // $collection = isset($indexDataItem['collections_names']) && isset($indexDataItem['collections_names'][0]) ? $indexDataItem['collections_names'][0].' ' : '';
-                    $collection = '';
-                    if ($category != null && isset($category['name'])) {
-                        $collection = $category['name'].' ';
-                    }
-                    $clone_name = $collection.$product['name'].', '.$cloneColorLabel.', '.$cloneSizeLabel;
-                    $slug = strtolower(trim(preg_replace('/[^A-Za-z0-9-]+/', '-', $clone_name)));
-                    $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $slug;
+                    $hrefLangs[str_replace('_', '-', $this->storeLocales[$store->getId()])] = $product->getUrlKey();
                 } catch (\Exception $e){
 
                 }
