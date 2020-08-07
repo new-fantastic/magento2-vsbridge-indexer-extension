@@ -102,7 +102,7 @@ class BundleDataExtender
             }
 
             if (isset($indexData[$product_id]['size_in_color_options'])) {
-                $indexData[$product_id]['size_in_color_options'] = array_unique($indexData[$product_id]['size_in_color_options']);
+                $indexData[$product_id]['size_in_color_options'] = array_values(array_unique($indexData[$product_id]['size_in_color_options']));
             }
 
             $indexData[$product_id]['bundle_children_price'] = $childrenRegularPrize['min'] . '-' . $childrenRegularPrize['max'];
@@ -124,7 +124,11 @@ class BundleDataExtender
                 if($childrenRegularPrize['max'] > 0) {
                     $discountAmountMax = intval(round(100 - (($bundlePrice / $childrenRegularPrize['max']) * 100)));
                 }
-                $discountAmount = $discountAmountMin . '-' . $discountAmountMax;
+                /**
+                 * Frontend team confirmed, that they are not using this discount attribute in PWA.
+                 * So as a temp fix, I am making the discount amount an integer value always.
+                 */
+                $discountAmount = $discountAmountMin - $discountAmountMax;
             }
 
             $indexData[$product_id]['discount'] = $discountAmount;
