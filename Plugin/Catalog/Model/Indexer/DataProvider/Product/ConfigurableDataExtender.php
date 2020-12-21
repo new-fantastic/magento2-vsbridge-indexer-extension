@@ -22,6 +22,9 @@ use Magento\ConfigurableProduct\Model\Product\Type\Configurable;
 use Divante\VsbridgeIndexerCatalog\Model\Attribute\LoadOptionLabelById;
 use Divante\VsbridgeIndexerCore\Indexer\GenericIndexerHandler;
 use Divante\VsbridgeIndexerCore\Cache\Processor as CacheProcessor;
+use Egits\Catalog\Helper\Product\Attributes\Custom as CustomProductAttributes;
+use Egits\VsbridgeIndexerCatalog\Model\Indexer\DataProvider\Product as CustomProductData;
+use Egits\VsbridgeIndexerCatalog\Helper\Product\Attribute\LabelKey as AttributeLabelKey;
 
 class ConfigurableDataExtender {
 
@@ -78,13 +81,19 @@ class ConfigurableDataExtender {
      */
     protected $storeManager;
 
-
     /**
      * Divante VsbridgeIndexerCatalog Link Resource Model
      *
      * @var LinkResourceModel
      */
     protected $linkResourceModel;
+
+    /**
+     * Egits custom product data
+     *
+     * @var CustomProductData
+     */
+    protected $customProductData;
 
     /**
      * ConfigurableDataExtender constructor.
@@ -95,6 +104,7 @@ class ConfigurableDataExtender {
      * @param CacheProcessor $cacheProcessor
      * @param StoreManagerInterface $storeManager
      * @param GenericIndexerHandler $indexHandler
+     * @param CustomProductData $customProductData
      */
     public function __construct(
         \Divante\VsbridgeIndexerCatalog\Model\Attribute\LoadOptionById $loadOptionById,
@@ -103,7 +113,8 @@ class ConfigurableDataExtender {
         CacheProcessor $cacheProcessor,
         StoreManagerInterface $storeManager,
         GenericIndexerHandler $indexerHandler,
-        LinkResourceModel $linkResourceModel
+        LinkResourceModel $linkResourceModel,
+        CustomProductData $customProductData
     ) {
         $this->loadOptionById = $loadOptionById;
         $this->objectManager = \Magento\Framework\App\ObjectManager::getInstance();
@@ -113,6 +124,7 @@ class ConfigurableDataExtender {
         $this->storeManager = $storeManager;
         $this->indexerHandler = $indexerHandler;
         $this->linkResourceModel = $linkResourceModel;
+        $this->customProductData = $customProductData;
     }
 
     /**
@@ -219,6 +231,18 @@ class ConfigurableDataExtender {
                 $clones[$cloneId][ConfigHelper::PRODUCT_SORT_ORDER_CATEGORY] = $category_data['category_new'];
                 $clones[$cloneId]['category'] = $category_data['category'];
                 $clones[$cloneId]['category_ids'] = $category_data['category_ids'];
+
+                // Preparing "tag" attribute data for clone
+                if (isset($clones[$cloneId][CustomProductAttributes::CATALOG_PRODUCT_TAG_ATTRIBUTE])) {
+                    unset($clones[$cloneId][CustomProductAttributes::CATALOG_PRODUCT_TAG_ATTRIBUTE]);
+                }
+                if (isset($clones[$cloneId][AttributeLabelKey::TAG_ATTRIBUTE_VALUE_LABEL_KEY])) {
+                    unset($clones[$cloneId][AttributeLabelKey::TAG_ATTRIBUTE_VALUE_LABEL_KEY]);
+                }
+                if (isset($child[CustomProductAttributes::CATALOG_PRODUCT_TAG_ATTRIBUTE])) {
+                    $clones[$cloneId][CustomProductAttributes::CATALOG_PRODUCT_TAG_ATTRIBUTE] = $child[CustomProductAttributes::CATALOG_PRODUCT_TAG_ATTRIBUTE];
+                    $clones[$cloneId] = $this->customProductData->processCustomAttributes($clones[$cloneId], $storeId);
+                }
 
                 // Get url_key from the child
                 if (isset($child['sku'])) {
